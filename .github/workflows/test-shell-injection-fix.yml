@@ -1,0 +1,46 @@
+name: Test sync-docs shell-injection fix
+
+# One-off side-by-side test for AlaudaDevops/run-actions#61.
+# Replays a commit-message-shaped string through the OLD inline-expansion
+# pattern and the NEW env-injection pattern, so we can see exactly which
+# one explodes on backticks / unbalanced parens.
+#
+# Not referenced by any other workflow. Delete this file (and its branch)
+# after the verification screenshot is captured.
+
+on:
+  workflow_dispatch:
+    inputs:
+      message:
+        description: 'Synthetic commit message to test (mimics b0ffcb5)'
+        required: true
+        default: "docs: fix `ERROR: nexusServerURL is required` (closing `)` got dropped"
+
+jobs:
+  old-pattern:
+    name: 'OLD pattern — inline dollar-curly expansion (expect FAIL on bad input)'
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Reproduce original buggy step
+        run: |
+          commit_msg="${{ inputs.message }}"
+          if echo "$commit_msg" | grep -q "\[reverse-sync\]"; then
+            echo "reverse_sync=true"
+          else
+            echo "reverse_sync=false"
+          fi
+
+  new-pattern:
+    name: NEW pattern — env injection (expect PASS on same input)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fixed step from PR #61
+        env:
+          COMMIT_MSG: ${{ inputs.message }}
+        run: |
+          if echo "$COMMIT_MSG" | grep -qF "[reverse-sync]"; then
+            echo "reverse_sync=true"
+          else
+            echo "reverse_sync=false"
+          fi
